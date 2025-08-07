@@ -76,20 +76,22 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 dst_web3 = connect_to("destination")
                 dst_contract_info = get_contract_info("destination", contract_info)
                 dst_contract = dst_web3.eth.contract(address=dst_contract_info["address"], abi=dst_contract_info["abi"])
-                warden = dst_contract_info["warden"]
-                nonce = dst_web3.eth.get_transaction_count(warden)
+                warden_key = dst_contract.get('warden')
+                warden = dst_web3.eth.account.from_key(warden_key)
+                nonce = dst_web3.eth.get_transaction_count(warden.address)
                 txn = dst_contract.functions.wrap(
                     evt['args']['token'],
                     # evt.args['token'],
                     evt.args['recipient'],
                     evt.args['amount']
                 ).build_transaction({
+                    'from': warden.address,
                     'chainId': 97,
                     'gas': 500000,
                     'gasPrice': dst_web3.to_wei('10', 'gwei'),
                     'nonce': nonce
                 })
-                signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=dst_contract_info["warden"])
+                signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=warden_key)
                 dst_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
                 time.sleep(1)
         except Exception as e:
@@ -108,20 +110,22 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 src_web3 = connect_to("source")
                 src_contract_info = get_contract_info("source", contract_info)
                 src_contract = src_web3.eth.contract(address=src_contract_info["address"], abi=src_contract_info["abi"])
-                warden = src_contract_info["warden"]
-                nonce = src_web3.eth.get_transaction_count(warden)
+                warden_key = src_contract.get('warden_key')
+                warden = src_web3.eth.account.from_key(warden_key)
+                nonce = src_web3.eth.get_transaction_count(warden.address)
                 txn = src_contract.functions.withdraw(
                     # evt.args['token'],
                     evt['args']['token'],
                     evt.args['recipient'],
                     evt.args['amount']
                 ).build_transaction({
+                    'from': warden.address,
                     'chainId': 43113,
                     'gas': 500000,
                     'gasPrice': src_web3.to_wei('25', 'gwei'),
                     'nonce': nonce
                 })
-                signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=src_contract_info["warden"])
+                signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=warden_key)
                 src_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
                 time.sleep(1)
         except Exception as e:
