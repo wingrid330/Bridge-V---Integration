@@ -80,8 +80,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 warden = dst_web3.eth.account.from_key(warden_key)
                 nonce = dst_web3.eth.get_transaction_count(warden.address)
                 txn = dst_contract.functions.wrap(
-                    evt['args']['token'],
-                    # evt.args['token'],
+                    evt.args['wrapped_token'],
                     evt.args['recipient'],
                     evt.args['amount']
                 ).build_transaction({
@@ -115,8 +114,8 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 nonce = src_web3.eth.get_transaction_count(warden.address)
                 txn = src_contract.functions.withdraw(
                     # evt.args['token'],
-                    evt['args']['token'],
-                    evt.args['recipient'],
+                    evt.args['underlying_token'],
+                    evt.args['to'],
                     evt.args['amount']
                 ).build_transaction({
                     'from': warden.address,
