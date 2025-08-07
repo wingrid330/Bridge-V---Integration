@@ -4,6 +4,7 @@ from web3.middleware import ExtraDataToPOAMiddleware #Necessary for POA chains
 from datetime import datetime
 import json
 import pandas as pd
+import time
 
 
 def connect_to(chain):
@@ -57,23 +58,29 @@ def scan_blocks(chain, contract_info="contract_info.json"):
     contract = w3.eth.contract(address=contract_address, abi=abi)
 
     latest_block = w3.eth.block_number
-    from_block = latest_block - 5 if latest_block >= 5 else 0
+    from_block = latest_block - 10
+    to_block = latest_block
+    
 
     events = []
     if chain == "source":
         # Look for "Deposit" events
+        # time.sleep(30)
         try:
-            deposit_events = contract.events.Deposit().get_logs(fromBlock=from_block, toBlock="latest")
+            # deposit_events = contract.events.Deposit().get_logs(from_block=from_block, to_block=to_block)
+            event_filter = contract.events.Deposit().create_filter(from_block=from_block, to_block=to_block)
+            deposit_events = event_filter.get_all_entries()
             for evt in deposit_events:
                 print(f"Deposit event detected on source: {evt}")
                 # Connect to destination and call wrap()
                 dst_web3 = connect_to("destination")
                 dst_contract_info = get_contract_info("destination", contract_info)
                 dst_contract = dst_web3.eth.contract(address=dst_contract_info["address"], abi=dst_contract_info["abi"])
-                warden = contracts["warden"]
+                warden = dst_contract_info["warden"]
                 nonce = dst_web3.eth.get_transaction_count(warden)
                 txn = dst_contract.functions.wrap(
-                    evt.args['token'],
+                    evt['args']['token'],
+                    # evt.args['token'],
                     evt.args['recipient'],
                     evt.args['amount']
                 ).build_transaction({
@@ -82,25 +89,30 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'gasPrice': dst_web3.to_wei('10', 'gwei'),
                     'nonce': nonce
                 })
-                signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=dst_contract_info["private_key"])
+                signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=dst_contract_info["warden"])
                 dst_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                time.sleep(1)
         except Exception as e:
             print(f"Error scanning Deposit: {e}")
 
     elif chain == "destination":
         # Look for "Unwrap" events
+        # time.sleep(30)
         try:
-            unwrap_events = contract.events.Unwrap().get_logs(fromBlock=from_block, toBlock="latest")
+            # unwrap_events = contract.events.Unwrap().get_logs(from_block=from_block, to_block=to_block)
+            event_filter = contract.events.Unwrap().create_filter(from_block=from_block, to_block=to_block)
+            unwrap_events = event_filter.get_all_entries()
             for evt in unwrap_events:
                 print(f"Unwrap event detected on destination: {evt}")
                 # Connect to source and call withdraw()
                 src_web3 = connect_to("source")
                 src_contract_info = get_contract_info("source", contract_info)
                 src_contract = src_web3.eth.contract(address=src_contract_info["address"], abi=src_contract_info["abi"])
-                warden = contracts["warden"]
+                warden = src_contract_info["warden"]
                 nonce = src_web3.eth.get_transaction_count(warden)
                 txn = src_contract.functions.withdraw(
-                    evt.args['token'],
+                    # evt.args['token'],
+                    evt['args']['token'],
                     evt.args['recipient'],
                     evt.args['amount']
                 ).build_transaction({
@@ -109,7 +121,13 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'gasPrice': src_web3.to_wei('25', 'gwei'),
                     'nonce': nonce
                 })
-                signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=src_contract_info["private_key"])
+                signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=src_contract_info["warden"])
                 src_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                time.sleep(1)
         except Exception as e:
             print(f"Error scanning Unwrap: {e}")
+
+if __name__ == "__main__":
+    scan_blocks("source")  
+    time.sleep(10)
+    scan_blocks("destination")
