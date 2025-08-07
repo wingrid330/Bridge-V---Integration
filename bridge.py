@@ -76,7 +76,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 dst_web3 = connect_to("destination")
                 dst_contract_info = get_contract_info("destination", contract_info)
                 dst_contract = dst_web3.eth.contract(address=dst_contract_info["address"], abi=dst_contract_info["abi"])
-                warden_key = dst_contract.get('warden')
+                warden_key = dst_contract_info['warden']
                 warden = dst_web3.eth.account.from_key(warden_key)
                 nonce = dst_web3.eth.get_transaction_count(warden.address)
                 txn = dst_contract.functions.wrap(
@@ -110,7 +110,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 src_web3 = connect_to("source")
                 src_contract_info = get_contract_info("source", contract_info)
                 src_contract = src_web3.eth.contract(address=src_contract_info["address"], abi=src_contract_info["abi"])
-                warden_key = src_contract.get('warden_key')
+                warden_key = src_contract_info['warden']
                 warden = src_web3.eth.account.from_key(warden_key)
                 nonce = src_web3.eth.get_transaction_count(warden.address)
                 txn = src_contract.functions.withdraw(
