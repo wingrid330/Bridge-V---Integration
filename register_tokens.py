@@ -11,57 +11,44 @@ PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 with open("contract_info.json") as f:
     contracts = json.load(f)
 
-# Token addresses to register
-tokens_avax = [
+tokens = [
     "0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c",
     "0x0773b81e0524447784CcE1F3808fed6AaA156eC8"
 ]
 
-tokens_bsc = [
-    "0xc677c31AD31F73A5290f5ef067F8CEF8d301e45c",
-    "0x0773b81e0524447784CcE1F3808fed6AaA156eC8"
-]
-
-# Setup source (Avalanche)
+# === Register on Source (Avalanche) ===
 w3_source = Web3(Web3.HTTPProvider("https://api.avax-test.network/ext/bc/C/rpc"))
 w3_source.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-src = contracts["source"]
-src_contract = w3_source.eth.contract(address=src["address"], abi=src["abi"])
-src_nonce = w3_source.eth.get_transaction_count(src["warden"])
+source_info = contracts["source"]
+source_contract = w3_source.eth.contract(address=source_info["address"], abi=source_info["abi"])
+source_nonce = w3_source.eth.get_transaction_count(source_info["warden"])
 
-# Register tokens on Source
-for token in tokens_avax:
-    tx = src_contract.functions.registerToken(token).build_transaction({
-        "from": src["warden"],
-        "nonce": src_nonce,
+for i, token in enumerate(tokens):
+    tx = source_contract.functions.registerToken(token).build_transaction({
+        "from": source_info["warden"],
+        "nonce": source_nonce + i,
         "gas": 200000,
-        "gasPrice": int(w3_source.eth.gas_price * 1.2),
-        "chainId": 43113
+        "gasPrice": w3_source.to_wei("30", "gwei")
     })
-    signed = w3_source.eth.account.sign_transaction(tx, PRIVATE_KEY)
-    tx_hash = w3_source.eth.send_raw_transaction(signed.raw_transaction)
-    print(f"[AVAX] Registered token {token} → tx: {tx_hash.hex()}")
-    src_nonce += 1
+    signed_tx = w3_source.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = w3_source.eth.send_raw_transaction(signed_tx.raw_transaction)
+    print(f"Registered token {token} on Source. Tx hash: {tx_hash.hex()}")
 
-# Setup destination (BSC)
+# === Create wrapped tokens on Destination (BNB) ===
 w3_dest = Web3(Web3.HTTPProvider("https://data-seed-prebsc-1-s1.binance.org:8545/"))
-w3_dest.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-dst = contracts["destination"]
-dst_contract = w3_dest.eth.contract(address=dst["address"], abi=dst["abi"])
-dst_nonce = w3_dest.eth.get_transaction_count(dst["warden"])
+dest_info = contracts["destination"]
+dest_contract = w3_dest.eth.contract(address=dest_info["address"], abi=dest_info["abi"])
+dest_nonce = w3_dest.eth.get_transaction_count(dest_info["warden"])
 
-# Create wrapped tokens on Destination
-for i, token in enumerate(tokens_bsc):
+for i, token in enumerate(tokens):
     name = f"Wrapped Token {i+1}"
     symbol = f"WT{i+1}"
-    tx = dst_contract.functions.createToken(token, name, symbol).build_transaction({
-        "from": dst["warden"],
-        "nonce": dst_nonce,
+    tx = dest_contract.functions.createToken(token, name, symbol).build_transaction({
+        "from": dest_info["warden"],
+        "nonce": dest_nonce + i,
         "gas": 300000,
-        "gasPrice": int(w3_dest.eth.gas_price * 1.2),
-        "chainId": 97
+        "gasPrice": w3_dest.to_wei("30", "gwei")
     })
-    signed = w3_dest.eth.account.sign_transaction(tx, PRIVATE_KEY)
-    tx_hash = w3_dest.eth.send_raw_transaction(signed.raw_transaction)
-    print(f"[BSC] Created token {token} → tx: {tx_hash.hex()}")
-    dst_nonce += 1
+    signed_tx = w3_dest.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = w3_dest.eth.send_raw_transaction(signed_tx.raw_transaction)
+    print(f"Created wrapped token for {token} on Destination. Tx hash: {tx_hash.hex()}")
