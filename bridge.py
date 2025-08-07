@@ -65,9 +65,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
     events = []
     if chain == "source":
         # Look for "Deposit" events
-        # time.sleep(30)
         try:
-            # deposit_events = contract.events.Deposit().get_logs(from_block=from_block, to_block=to_block)
             event_filter = contract.events.Deposit().create_filter(from_block=from_block, to_block=to_block)
             deposit_events = event_filter.get_all_entries()
             for evt in deposit_events:
@@ -91,17 +89,14 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                dst_web3.eth.send_raw_transaction(signed_txn)
-                # dst_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
+                dst_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Deposit: {e}")
 
     elif chain == "destination":
         # Look for "Unwrap" events
-        # time.sleep(30)
         try:
-            # unwrap_events = contract.events.Unwrap().get_logs(from_block=from_block, to_block=to_block)
             event_filter = contract.events.Unwrap().create_filter(from_block=from_block, to_block=to_block)
             unwrap_events = event_filter.get_all_entries()
             for evt in unwrap_events:
@@ -125,8 +120,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                src_web3.eth.send_raw_transaction(signed_txn)
-                # src_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
+                src_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Unwrap: {e}")
