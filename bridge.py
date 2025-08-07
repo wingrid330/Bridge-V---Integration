@@ -78,7 +78,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 dst_contract = dst_web3.eth.contract(address=dst_contract_info["address"], abi=dst_contract_info["abi"])
                 warden_key = dst_contract_info['warden']
                 warden = dst_web3.eth.account.from_key(warden_key)
-                nonce = dst_web3.eth.get_transaction_count(warden.address)
+                nonce = dst_web3.eth.get_transaction_count(warden.address, 'pending')
                 txn = dst_contract.functions.wrap(
                     evt.args['token'],
                     evt.args['recipient'],
@@ -91,7 +91,8 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                dst_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
+                dst_web3.eth.send_raw_transaction(signed_txn)
+                # dst_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Deposit: {e}")
@@ -111,7 +112,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                 src_contract = src_web3.eth.contract(address=src_contract_info["address"], abi=src_contract_info["abi"])
                 warden_key = src_contract_info['warden']
                 warden = src_web3.eth.account.from_key(warden_key)
-                nonce = src_web3.eth.get_transaction_count(warden.address)
+                nonce = src_web3.eth.get_transaction_count(warden.address, 'pending')
                 txn = src_contract.functions.withdraw(
                     evt.args['underlying_token'],
                     evt.args['to'],
@@ -124,7 +125,8 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                src_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
+                src_web3.eth.send_raw_transaction(signed_txn)
+                # src_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Unwrap: {e}")
