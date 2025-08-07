@@ -49,62 +49,67 @@ def scan_blocks(chain, contract_info="contract_info.json"):
         print( f"Invalid chain: {chain}" )
         return 0
     
-        #YOUR CODE HERE
-    # Load contract data
-    info = get_contract_info(chain, contract_info)
-    contract_address = info['contract']
-    abi = info['abi']
-    warden_key = info['warden_key']
-    
+    #YOUR CODE HERE
     w3 = connect_to(chain)
+    contracts = get_contract_info(chain, contract_info)
+    contract_address = contracts["address"]
+    abi = contracts["abi"]
     contract = w3.eth.contract(address=contract_address, abi=abi)
 
-    end_block = w3.eth.get_block_number()
-    start_block = end_block - 5
+    latest_block = w3.eth.block_number
+    from_block = latest_block - 5 if latest_block >= 5 else 0
 
-    # Choose the event type and destination chain
-    if chain == 'source':
-        event_type = contract.events.Deposit
-        opposite_chain = 'destination'
-        opposite_function = 'wrap'
-    else:
-        event_type = contract.events.Unwrap
-        opposite_chain = 'source'
-        opposite_function = 'withdraw'
+    events = []
+    if chain == "source":
+        # Look for "Deposit" events
+        try:
+            deposit_events = contract.events.Deposit().get_logs(fromBlock=from_block, toBlock="latest")
+            for evt in deposit_events:
+                print(f"Deposit event detected on source: {evt}")
+                # Connect to destination and call wrap()
+                dst_web3 = connect_to("destination")
+                dst_contract_info = get_contract_info("destination", contract_info)
+                dst_contract = dst_web3.eth.contract(address=dst_contract_info["address"], abi=dst_contract_info["abi"])
+                warden = contracts["warden"]
+                nonce = dst_web3.eth.get_transaction_count(warden)
+                txn = dst_contract.functions.wrap(
+                    evt.args['token'],
+                    evt.args['recipient'],
+                    evt.args['amount']
+                ).build_transaction({
+                    'chainId': 97,
+                    'gas': 500000,
+                    'gasPrice': dst_web3.to_wei('10', 'gwei'),
+                    'nonce': nonce
+                })
+                signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=dst_contract_info["private_key"])
+                dst_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        except Exception as e:
+            print(f"Error scanning Deposit: {e}")
 
-    # Filter and collect events
-    try:
-        event_filter = event_type.create_filter(fromBlock=start_block, toBlock=end_block)
-        events = event_filter.get_all_entries()
-    except Exception as e:
-        print(f"Error filtering events: {e}")
-        return
-
-    for evt in events:
-        args = evt.args
-        token = args['token']
-        to = args['to']
-        amount = args['amount']
-
-        # Prepare message
-        message = f"{token.lower()}|{to.lower()}|{amount}"
-        message_hash = w3.keccak(text=message)
-        signed_message = Account.signHash(message_hash, private_key=warden_key)
-
-        # Call opposite chain function
-        dest_info = get_contract_info(opposite_chain, contract_info)
-        dest_contract = connect_to(opposite_chain).eth.contract(
-            address=dest_info['contract'],
-            abi=dest_info['abi']
-        )
-        tx = dest_contract.functions[opposite_function](
-            token, to, amount, signed_message.signature
-        ).build_transaction({
-            'from': Account.from_key(warden_key).address,
-            'nonce': connect_to(opposite_chain).eth.get_transaction_count(Account.from_key(warden_key).address),
-            'gas': 500000,
-            'gasPrice': connect_to(opposite_chain).eth.gas_price
-        })
-        signed_tx = connect_to(opposite_chain).eth.account.sign_transaction(tx, private_key=warden_key)
-        tx_hash = connect_to(opposite_chain).eth.send_raw_transaction(signed_tx.rawTransaction)
-        print(f"Sent {opposite_function} tx: {tx_hash.hex()}")
+    elif chain == "destination":
+        # Look for "Unwrap" events
+        try:
+            unwrap_events = contract.events.Unwrap().get_logs(fromBlock=from_block, toBlock="latest")
+            for evt in unwrap_events:
+                print(f"Unwrap event detected on destination: {evt}")
+                # Connect to source and call withdraw()
+                src_web3 = connect_to("source")
+                src_contract_info = get_contract_info("source", contract_info)
+                src_contract = src_web3.eth.contract(address=src_contract_info["address"], abi=src_contract_info["abi"])
+                warden = contracts["warden"]
+                nonce = src_web3.eth.get_transaction_count(warden)
+                txn = src_contract.functions.withdraw(
+                    evt.args['token'],
+                    evt.args['recipient'],
+                    evt.args['amount']
+                ).build_transaction({
+                    'chainId': 43113,
+                    'gas': 500000,
+                    'gasPrice': src_web3.to_wei('25', 'gwei'),
+                    'nonce': nonce
+                })
+                signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=src_contract_info["private_key"])
+                src_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        except Exception as e:
+            print(f"Error scanning Unwrap: {e}")
