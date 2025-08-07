@@ -92,7 +92,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = dst_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                dst_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                dst_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Deposit: {e}")
@@ -126,7 +126,7 @@ def scan_blocks(chain, contract_info="contract_info.json"):
                     'nonce': nonce
                 })
                 signed_txn = src_web3.eth.account.sign_transaction(txn, private_key=warden_key)
-                src_web3.eth.send_raw_transaction(signed_txn.rawTransaction)
+                src_web3.eth.send_raw_transaction(signed_txn.raw_transaction)
                 time.sleep(1)
         except Exception as e:
             print(f"Error scanning Unwrap: {e}")
