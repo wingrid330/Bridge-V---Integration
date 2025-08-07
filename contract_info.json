@@ -1,5 +1,5 @@
 {"source": { "address": "0x31E3c04bADE6B713f4112058260940eB84f95619",
-  "warden": "0x2A02fdecD28178f87046701142463AC7F8f1c881",
+ "warden": "0x2A02fdecD28178f87046701142463AC7F8f1c881",
  "abi": [
   {
     "type": "constructor",
